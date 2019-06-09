@@ -8,29 +8,23 @@ import cmath
 
 class Polynomial(object):
 
-    def __init__(self, string, coefflst = None, expnonempty = None,
-                 varlist = None, degree = None):
-        #initializing to empty in the case when only string is passed in
+    def __init__(self, string, polynomial = None, varlist = None, degree = None, explist = None):
+        if polynomial == None:
+            polynomial = []
         if varlist == None:
             varlist = []
         if degree == None:
             degree = 0
-        if coefflst == None:
-            coefflst = []
-        if expnonempty == None:
-            expnonempty = []
-        #errors in the case that inputs to constructor conflict
-        if string == "" and (coefflst == [] or varlist == []
-                            or expnonempty == []):
+        if explist == None:
+            explist = []
+        if string == "" and (polynomial == [] or varlist == [] or degree == 0):
             raise InsufficientInputError
-        if string != "" and (coefflst != [] or varlist != []
-                            or expnonempty != []):
+        if string != "" and (polynomial != [] or varlist != [] or degree != 0):
             raise ConflictingInputError
+        self.Polynomial = polynomial
         self.varlist = varlist
         self.degree = degree
-        self.explist = []
-        self.coefflst = coefflst
-        self.ExpNonEmpty = expnonempty
+        self.explist = explist
         #finds the variables and makes a sorted list of them
         if string != "":
             for i in string:
@@ -40,73 +34,72 @@ class Polynomial(object):
         self.varnum = len(self.varlist)
         if string != "":
             #finds coefficients and corresponding exponent vectors
+            counter = 0
             plusminus = ["-","+"]
             tempexplist = []
-            tempcoefflst = []
-            for counter,i in enumerate(string):
+            coeflist = []
+            for i in string:
                 if string[counter - 1] in plusminus or (counter == 0 and string[0] != "-"):
                     if i.isdigit():
-                        str_counter = counter + 1
-                        str_temp = i
-                        while str_counter < len(string):
-                            if string[str_counter].isdigit():
-                                str_temp += string[str_counter]
-                                str_counter += 1
-                            else:
-                                break
-                        value = int(str_temp)
+                        value = int(i)
                         if counter != 0:
                             if string[counter - 1] == "-":
                                 value *= -1
-                        if counter < len(string) - 2:
-                            if string[counter + 1] == "/":
-                                value /= int(string[counter+2])
-                    elif string[counter-1] == "+" or counter == 0:
+                    elif string[counter-1] == "+":
                         value = 1
                     else:
                         value = -1
-                    tempcoefflst.append(value)
+                    coeflist.append(value)
                     expvec = []
+                    end = min(counter + 3*self.varnum + 1, len(string))
                     #makes a list of exponents
                     for j in range(self.varnum):
                         expvec.append(0)
-                    j = counter
-                    while True:
-                        if j == len(string) or string[j] in ["+"," ","-"]:
+                    for j in range(counter, end):
+                        if string[j] in ["+"," ","-"]:
                             break
                         if string[j].isalpha():
                             if j+2 < len(string):
-                                if string[j+2].isdigit() and string[j+1] == "^":
-                                    k = j + 2
-                                    tempstring = ""
-                                    while True:
-                                        if k == len(string) or not string[k].isdigit():
-                                            break
-                                        tempstring += string[k]
-                                        k += 1
-                                    expvec[bsearch(self.varlist, string[j])] = int(tempstring)
+                                if string[j+2].isdigit() and string[j+1] not in plusminus:
+                                    expvec[bsearch(self.varlist, string[j])] = int(string[j+2])
                                 else:
                                     expvec[bsearch(self.varlist, string[j])] = 1
                             else:
                                 expvec[bsearch(self.varlist, string[j])] = 1
-                        j += 1
                     tempexplist.append(expvec)
+                counter += 1
             #finds the degree of the polynomial
             #and the locations of the terms in the grevlex ordering
+            loclist = []
             for i in tempexplist:
                 if sum(i) > self.degree:
                     self.degree = sum(i)
-            self.coefflst = modifiedgrevlexSort(tempexplist, tempcoefflst)
-            self.ExpNonEmpty = tempexplist
-        if self.degree == 0:
-            for i in self.ExpNonEmpty:
-                if sum(i) > self.degree:
-                    self.degree = sum(i)
+                loclist.append(rPolylocate(i))
+            #creates the grevlex ordered polynomial list
+            if self.explist == []:
+                self.explist = makeExpVec(self.varnum, self.degree)
+            self.ExpNonEmpty = []
+            for i in range(nCk(self.degree + self.varnum, self.degree)):
+                if i in loclist:
+                    self.Polynomial.append(coeflist[loclist.index(i)])
+                    self.ExpNonEmpty.append(self.explist[i])
+                else:
+                    self.Polynomial.append(0)
+            self.loclist = loclist
+
+        else:
+            self.loclist = [] #non zero positions in polynomial list
+            self.ExpNonEmpty = []
+            if self.explist == []:
+                self.explist = makeExpVec(self.varnum, self.degree)
+            for i in range(len(self.Polynomial)):
+                if self.Polynomial[i] != 0:
+                    self.loclist.append(i)
+                    self.ExpNonEmpty.append(self.explist[i])
         self.Monomial = False
-        if len(self.coefflst) == 1:
+        if len(self.loclist) == 1:
             self.Monomial = True
 
-    #evaluates the polynomial at a given point
     def __getitem__(self, L):
         varlist = self.getVarlist()
         if len(varlist) != 1:
@@ -114,52 +107,55 @@ class Polynomial(object):
                 return KeyError
             if not isinstance(L, list):
                 return TypeError
-            coefflist = self.getCoefflist()
-            nonempty = self.getexpNonZero()
+            loclist = self.getloclist()
+            poly = self.getPoly()
+            explist = self.getExplist()
             final = 0
-            for i in range(len(coefflist)):
-                temp = coefflist[i]
-                for j in range(len(nonempty[i])):
-                    temp *= L[j] ** nonempty[i][j]  #evaluates term by term
-                final += temp                       #this is the sum
+            for i in loclist:
+                temp = poly[i]
+                for j in range(len(explist[i])):
+                    temp *=  L[j] ** explist[i][j]
+                final += temp
             return final
         else:
             if not (isinstance(L, int) or isinstance(L, list) or isinstance(L,type(1j))):
                 return TypeError
             if isinstance(L, int) or isinstance(L,type(1j)):
-                coefflist = self.getCoefflist()
-                nonempty = self.getexpNonZero()
+                loclist = self.getloclist()
+                poly = self.getPoly()
+                explist = self.getExplist()
                 final = 0
-                for counter, i in enumerate(coefflist):
-                    temp = i * (L ** nonempty[counter][0])
+                for i in loclist:
+                    temp = poly[i] * (L ** explist[i][0])
                     final += temp
                 return final
             elif isinstance(L, list):
-                coefflist = self.getCoefflist()
-                nonempty = self.getexpNonZero()
+                loclist = self.getloclist()
+                poly = self.getPoly()
+                explist = self.getExplist()
                 final = 0
-                for counter, i in enumerate(coefflist):
-                    temp = i * (L[0] ** nonempty[counter][0])
+                for i in loclist:
+                    temp = poly[i] * L[0] ** explist[i][0]
                     final += temp
                 return final
 
-    #turns polynomial into a string
     def __str__(self):
+        loclist = self.getloclist()
+        poly = self.getPoly()
+        explist = self.getexpNonZero()
         varlist = self.getVarlist()
-        coefflist = self.getCoefflist()
-        nonempty = self.getexpNonZero()
         final = ""
-        for counter, i in enumerate(coefflist):
-            if i < 0:   #append "+" if positive, "-" if negative
+        for counter,i in enumerate(loclist):
+            if poly[i] < 0:
                 final += "-"
-            elif i > 0 and counter != 0:
+            elif poly[i] > 0 and counter != 0:
                 final += "+"
-            if abs(i) == 1:
-                if nonempty[counter] == [0]*len(varlist):
-                    final += "1"
+            if abs(poly[i]) == 1:
+                if counter == 0:
+                    final += str(abs(poly[i]))
             else:
-                final += str(abs(i))
-            for counter2, j in enumerate(nonempty[counter]):
+                final += str(abs(poly[i]))
+            for counter2, j in enumerate(explist[counter]):
                 if j != 0:
                     final += varlist[counter2]
                     if j != 1:
@@ -168,39 +164,32 @@ class Polynomial(object):
 
     def __add__(self, other):
         if isinstance(other, int):
-            coefflist = self.getCoefflist()
-            nonempty = self.getexpNonZero()
-            varlist = self.getVarlist()
-            constantcheck = True #checks if the polynomial has a constant term
-            for i in range(len(varlist)):
-                if nonempty[0][i] != 0:
-                    constantcheck = False
-            if constantcheck:
-                coefflist[0] += other
-            else:
-                templist = []
-                for i in range(len(varlist)):
-                    templist.append(0)
-                nonempty.insert(0,templist)
-                coefflist.insert(0,other)
-            return Polynomial("", coefflist, nonempty, varlist, self.degree)
+            poly = self.Polynomial[:]
+            poly[0] += other
+            return Polynomial("", poly, self.varlist, self.degree, self.explist)
         elif isinstance(other, Polynomial):
             a = self.varlist
             b = other.getVarlist()
-            newdegree = max(self.degree, other.getDegree())
             if a == b:
-                poly1 = self.getCoefflist()[:]
-                poly2 = other.getCoefflist()
-                explst1 = self.getexpNonZero()[:]
-                explst2 = other.getexpNonZero()
-                for i in range(len(poly2)):
-                    if explst2[i] in explst1: #if terms combine
-                        poly1[explst1.index(explst2[i])] += poly2[i]
-                    else: #if terms do not combine
-                        poly1.append(poly2[i])
-                        explst1.append(explst2[i])
-                newcoefflst = modifiedgrevlexSort(explst1, poly1) #sort
-                return Polynomial("", newcoefflst, explst1, a, newdegree)
+                if len(self.Polynomial) > len(other.getPoly()):
+                    poly1 = self.Polynomial
+                    poly2 = other.getPoly()
+                    end1 = len(poly2)
+                    end2 = len(poly1)
+                    deg = self.degree
+                else:
+                    poly2 = self.Polynomial
+                    poly1 = other.getPoly()
+                    end1 = len(poly2)
+                    end2 = len(poly1)
+                    deg = other.getDegree()
+                polynomial = []
+                for i in range(end1):
+                    polynomial.append(poly1[i] + poly2[i])
+                for i in range(end1,end2):
+                    polynomial.append(poly1[i])
+                return Polynomial("", polynomial, a, deg)
+            sharedvarlist = list(set(a) & (set(b)))
             sno_vars = list(set(a) - set(b)) #variables in self but not other
             sno_vars.sort()
             ons_vars = list(set(b) - set(a)) #variables in other but not self
@@ -213,68 +202,44 @@ class Polynomial(object):
             ons_vars_positions = [] #positions in the new varlist
             for i in ons_vars:
                 ons_vars_positions.append(bsearch(newvarlist, i))
+            self_vars_positions = []
+            for i in a:
+                self_vars_positions.append(bsearch(newvarlist, i))
+            other_vars_positions = []
+            for i in b:
+                other_vars_positions.append(bsearch(newvarlist, i))
+            newdegree = max(self.degree, other.getDegree())
             newvarnum = len(newvarlist) #new Polynomial # of variables
-            coefflst1 = self.getCoefflist()[:]
-            coefflst2 = other.getCoefflist()[:]
-            explst1 = self.getexpNonZero()[:]
-            explst2 = other.getexpNonZero()[:]
-            #explst1 padded with 0 where the varliables in other are
-            newexplst1 = []
-            for i in explst1:
-                newexpvec = []
-                counter = 0
-                for j in range(newvarnum):
-                    if j in ons_vars_positions:
-                        newexpvec.append(0)
-                    else:
-                        newexpvec.append(i[counter])
-                        counter += 1
-                newexplst1.append(newexpvec)
-            grevlexsort(newexplst1)
-            #explst2 padded with 0 where the varliables in self are
-            newexplst2 = []
-            for i in explst2:
-                newexpvec = []
-                counter2 = 0
-                for j in range(newvarnum):
-                    if j in sno_vars_positions:
-                        newexpvec.append(0)
-                    else:
-                        newexpvec.append(i[counter2])
-                        counter2 += 1
-                newexplst2.append(newexpvec)
-            grevlexsort(newexplst1)
-            newcoefflst = []
-            newexplst = []
-            counter1 = 0 #position in newexplst1
-            counter2 = 0 #position in newexplst2
-            while counter1 < len(newexplst1) or counter2 < len(newexplst2):
-            #while not at the end of both lists
-                if counter1 < len(newexplst1) and counter2 < len(newexplst2):
-                    #if the exponents are the same
-                    if newexplst1[counter1] == newexplst2[counter2]:
-                        newcoefflst.append(coefflst1[counter1]+coefflst2[counter2])
-                        newexplst.append(newexplst1[counter1])
-                        counter1 += 1
-                        counter2 += 1
-                    elif grevlexhelper(newexplst1[counter1], newexplst2[counter2]):
-                        #preserving grevlex order
-                        newcoefflst.append(coefflst1[counter1])
-                        newexplst.append(newexplst1[counter1])
-                        counter1 += 1
-                    else:
-                        newcoefflst.append(coefflst2[counter2])
-                        newexplst.append(newexplst2[counter2])
-                        counter2 += 1
-                elif counter1 < len(newexplst1):
-                    newcoefflst.append(coefflst1[counter1])
-                    newexplst.append(newexplst1[counter1])
-                    counter1 += 1
-                elif counter2 < len(newexplst2):
-                    newcoefflst.append(coefflst2[counter2])
-                    newexplst.append(newexplst2[counter2])
-                    counter2 += 1
-            return Polynomial("", newcoefflst, newexplst, newvarlist, newdegree)
+            poly1 = self.Polynomial
+            poly2 = other.getPoly()
+            explist1 = self.explist
+            explist2 = other.getExplist()
+            newpoly = [] #new Polynomial list
+            newexplist = makeExpVec(newvarnum, newdegree) #list of new expvectors
+            for i in range(nCk(newdegree + newvarnum, newvarnum)):
+                check = True
+                if inone(sno_vars_positions, newexplist[i]):
+                    copy = []
+                    for j in other_vars_positions:
+                        copy.append(newexplist[i][j])
+                    if copy in explist2:
+                        check = False
+                        d = grevsearch(explist2, copy)
+                        newpoly.append(poly2[d])
+                if inone(ons_vars_positions, newexplist[i]):
+                    copy = []
+                    for j in self_vars_positions:
+                        copy.append(newexplist[i][j])
+                    if copy in explist1:
+                        check = False
+                        c = grevsearch(explist1, copy)
+                        try:
+                            newpoly[i] += poly1[c]
+                        except IndexError:
+                            newpoly.append(poly1[c])
+                if check:
+                    newpoly.append(0)
+            return Polynomial("", newpoly, newvarlist, newdegree, newexplist)
         else:
             return NotImplemented
 
@@ -283,36 +248,41 @@ class Polynomial(object):
 
     def __sub__(self, other):
         if isinstance(other, int):
-            tempint = other * -1
-            return self.__add__(tempint)
+            poly = self.polynomial[:]
+            poly[0] -= other
+            return Polynomial("", poly, self.varlist, self.degree, self.explist)
         elif isinstance(other, Polynomial):
-            tempPoly = other * -1 #needs to be other * -1
-            return self.__add__(tempPoly)
+            poly = other.getPoly()[:]
+            for i in range(len(poly)):
+                poly[i] *= -1
+            return self.__add__(Polynomial("", poly, other.getVarlist(),other.getDegree(),other.getExplist()))
         else:
             return NotImplemented
 
     def __mul__(self, other):
-        if isinstance(other, int) or isinstance(other,float):
-            coeff = self.getCoefflist()[:]
-            for i in range(len(coeff)):
-                coeff[i] *= other
-            return Polynomial("", coeff, self.getexpNonZero(), self.getVarlist(),
-                              self.getDegree())
+        if isinstance(other, int):
+            poly = self.polynomial[:]
+            for i in poly:
+                i *= other
+            return Polynomial("", poly, self.getVarlist(), self.getDegree(), self.getExplist())
         elif isinstance(other, Polynomial):
             if other.isMonomial():
-                coeff = other.getCoefflist()[0]
+                coeff = other.getPoly()[other.getloclist()[0]]
                 expvec = other.getexpNonZero()[0]
-                final = multMonomial(self,other.getVarlist(),coeff,expvec)
+                degree = other.getDegree()
+                final = multMonomial(self,other.getVarlist(),coeff,expvec,degree)
                 return final
             else:
                 final = 0
+                loclist1 = other.getloclist()
                 varlist1 = other.getVarlist()
-                coefflst1 = other.getCoefflist()
-                expveclist = other.getexpNonZero()
-                for i in range(len(expveclist)):
-                    coeff = coefflst1[i]
+                poly1 = other.getPoly()
+                expveclist = other.getExplist()
+                for i in loclist1:
+                    coeff = poly1[i]
                     expvec = expveclist[i]
-                    temp = multMonomial(self,varlist1,coeff,expvec)
+                    degree = sum(expvec)
+                    temp = multMonomial(self,varlist1,coeff,expvec,degree)
                     final += temp
                 return final
         else:
@@ -322,100 +292,97 @@ class Polynomial(object):
         return self.__mul__(other)
 
     def derive(self, variable):
-        """
-        derives the polynomial with respect to the variable passed in
-        """
         varlist = self.getVarlist()[:]
         if variable not in varlist:
             return 0
         position = varlist.index(variable)
-        coefflst = self.getCoefflist()[:]
-        expvecold = self.getexpNonZero()
+        loclist = self.getloclist()[:]
+        poly = self.getPoly()[:]
+        expvectemp = self.getexpNonZero()
+        expvectemp2 = []
+        for i in expvectemp:
+            temp = []
+            for j in i:
+                temp.append(j)
+            expvectemp2.append(temp)
+        deleteList = []
+        coefflist = []
         expvec = []
-        for i in expvecold: #since copying doesn't copy inner lists
-            expvec.append(i[:])
-        deletelist = []
-        deleteVarList = [True] * len(varlist)
-        for i in range(len(coefflst)):
-            if expvec[i][position] == 0:
-                deletelist.append(i)
-            else:
-                coefflst[i] *= expvec[i][position]
-                expvec[i][position] -= 1
-        for i in range(len(deletelist)-1,-1,-1):
-            coefflst.pop(deletelist[i])
-            expvec.pop(deletelist[i])
+        for counter, i in enumerate(loclist):
+            if expvectemp2[counter][position] != 0:
+                coefflist.append(poly[i] * expvectemp2[counter][position])
+                expvec.append(expvectemp2[counter])
+                expvectemp2[counter][position] -= 1
+        deleteVar = True
         for i in expvec:
-            for counter, j in enumerate(i):
-                if j != 0:
-                    deleteVarList[counter] = False
-            if deleteVarList == [False] * len(varlist):
+            if i[position] != 0:
+                deleteVar = False
                 break
-        for i in range(len(varlist)-1,-1,-1):
-            if deleteVarList[i]:
-                for j in range(len(expvec)):
-                    expvec[j].pop(i)
-                varlist.pop(i)
-        if len(varlist) == 0:
-            varlist.append(None)
-            expvec[0].append(0)
-        return Polynomial("",coefflst,expvec,varlist)
-
-    def makeExpVec(self):
-        """
-        Makes the grevlex sorted list of all possible exp vectors for a certain
-        variable number and certain degree
-        """
-        varnum = len(self.getVarlist())
-        degree = self.getDegree()
-        explist = [] #temp list of partitions
-        for i in range(varnum+1):
-            explist += list(revlex_partitions(degree, i))
-        temp2 = []
-        newexplist = []
-        for i in explist:
-            while len(i) < varnum:
-                i.append(0)
-            temp2 += list(itertools.permutations(i))
-        for i in temp2:
-            thingy = list(i)
-            if thingy in newexplist:
-                continue
-            newexplist.append(thingy)
-        grevlexsort(newexplist)
-        return newexplist
+        if deleteVar:
+            varlist.pop(position)
+            for i in range(len(expvec)):
+                expvec[i].pop(position)
+        varnum = len(varlist)
+        newdegree = 0
+        newloclist = []
+        for i in expvec:
+            if sum(i) > newdegree:
+                newdegree = sum(i)
+            newloclist.append(rPolylocate(i))
+        newpoly = []
+        for i in range(nCk(varnum+newdegree,newdegree)):
+            if i in newloclist:
+                newpoly.append(coefflist[newloclist.index(i)])
+            else:
+                newpoly.append(0)
+        if varlist == []:
+            return newpoly[0]
+        return Polynomial("",newpoly,varlist,newdegree)
 
     def roots(self):
         """
         Returns a list of all complex and real roots.
-        Calculated by the Aberth method.
-        Works now!
+        Calculated by the Aberth method. Kind of working
         """
-        guess = makeGuess(self)
-        D = self.derive(self.getVarlist()[0])
-        counter = 0
-        while True:
-            off = True
-            newguess = []
+        varlist = self.getVarlist()
+        if len(varlist) != 1:
+            return TooManyVariables
+        poly = self.getPoly()
+        loclist = self.getloclist()
+        last_pos = loclist[len(loclist)-1]
+        degree = self.getDegree()
+        D = self.derive(varlist[0])
+        maxlength = 0
+        #calculates maximum abs of roots
+        for n, i in enumerate(reversed(loclist)):
+            temp = (abs(Fraction(poly[i],poly[last_pos])))**Fraction(1,n+1)
+            if n == len(loclist) - 1:
+                temp = (abs(Fraction(poly[i],2*poly[last_pos])))**Fraction(1,n+1)
+            if maxlength < temp:
+                maxlength = temp
+        maxlength *= 2
+        returnset = set([])
+        for i in range(5):
+            guess = []
+            phi = random.uniform(0,2*cmath.pi)
+            for i in range(degree):
+                radius = random.uniform(0,maxlength)
+                temp = radius * cmath.exp(1j*phi*i)
+                guess.append(temp)
+                for i in range(50):
+                    guess = Aberth(guess, self, D)
             for i in guess:
-                for j in guess:
-                    tempsum = 0
-                    if i != j:
-                        tempsum += 1/(i - j)
-                try:
-                    tempfrac = (self[i])/(D[i])
-                except TypeError:
-                    tempfrac = self[i]/D
-                offset = tempfrac/(1-tempfrac*tempsum)
-                newguess.append(i-offset)
-                if abs(offset.real) > 0.0000001 or abs(offset.imag) > 0.00000001:
-                    off = False
-            guess = newguess
-            if off or counter == 1000:
-                break
-            counter += 1
-        print(counter)
-        return guess
+                returnset.add(i)
+        final = list(returnset)
+        """returnlst = []
+        toadd = True
+        for i in range(len(final)):
+            for j in range(i+1,len(final)):
+                if(abs(final[i]-final[j]) < 10**-25):
+                    toadd = False
+            if(toadd):
+                returnlst.append(final[i])"""
+        return final
 
     def getVarlist(self):
         "Gets the list of variables in a Polynomial"
@@ -425,76 +392,143 @@ class Polynomial(object):
         "Gets the degree of the Polynomial"
         return self.degree
 
+    def getPoly(self):
+        "Gets the ordered list of coefficients"
+        return self.Polynomial
+
+    def getExplist(self):
+        "Gets the list of exp vectors"
+        return self.explist
+
     def isMonomial(self):
         "Returns True if the polynomial has one term, False if it has more"
         return self.Monomial
 
     def getexpNonZero(self):
-        "Returns list of powers in the polynomial"
+        "Returns list of powers that have non zero coefficients"
         return self.ExpNonEmpty
 
-    def getCoefflist(self):
-        "Returns a list of non zero coefficients"
-        return self.coefflst
+    def getloclist(self):
+        "Returns list of non zero locations in the polynomial"
+        return self.loclist
 
-def makeGuess(polynomial):
-    """
-    Generates a list of guesses for roots
-    """
-    varlist = polynomial.getVarlist()[:]
-    if len(varlist) != 1:
-        raise TooManyVariables
-    poly = polynomial.getCoefflist()[:]
-    loclist = polynomial.getexpNonZero()[:]
-    last_pos = poly[len(poly)-1]
-    degree = polynomial.getDegree()
-    maxlength = 0
-    #calculates maximum norm of roots
-    for n,i in enumerate(reversed(poly)):
-        temp = (abs(i/last_pos))**Fraction(1,n+1)
-        if n+1 == len(loclist):
-            temp = (abs(i/2*last_pos))**Fraction(1,n+1)
-        if maxlength < temp:
-            maxlength = temp
-    maxlength *= 2
-    guess = []
-    for i in range(degree):
-        phi = random.uniform(0,2*cmath.pi)
-        radius = random.uniform(0,maxlength)
-        temp = radius * cmath.exp(1j*phi)
-        guess.append(temp)
-    return guess
 
-def multMonomial(poly, varlist, coeff, expvec):
+def DivisionWithRemainder(dividend, divisors):
+    """divides the dividend by the divisor(s) with remainder. dividend should be
+    a polynomial, divisor(s) should be a list of polynomials. returns a
+    list of polynomials a_i corresponding to the divisors f_i
+    for multivariable polynomials, non unique remainder"""
+
+
+def Aberth(L, polynomial, derivative):
+    final = []
+    for i in L:
+        for j in L:
+            tempsum = 0
+            if i != j:
+                tempsum += 1/(i - j)
+        try:
+            tempfrac = polynomial[i]/derivative[i]
+        except TypeError:
+            tempfrac = polynomial[i]/(derivative)
+        offset = tempfrac/(1-tempfrac*tempsum)
+        final.append(i-offset)
+    return final
+
+def MonomialDivisible(expvec1, expvec2):
+    """returns true if the dividend = (variables)**(expvec1)
+    is divisible by the divisor = (variables)**(expvec2). assumes
+    monomials have the same variables"""
+    returnbool = True
+    for i in range(len(expvec1)):
+        if(expvec1[i] - expvec2[i] < 0):
+            returnbool = False
+    return returnbool
+
+def DivideMonomial(coeff1, expvec1, coeff2, expvec2, varlist):
+    """divides monomial a by monomial b, where
+    a = coeff1*(variables)**(expvec1) and b = coeff2*(variables)**(expvec2).
+    assumes monomials have the same variables, which are given in varlist."""
+    qexpvec = []
+    for i in range(len(expvec1)):
+        temp = expvec1[i] - expvec2[i]
+        if(temp < 0):
+            raise MonomialNotDivisible
+        qexpvec.append(temp)
+    qcoeff = coeff1/coeff2
+    #make the monomial a polynomial now
+    return returnbool
+
+def MakeMonomial(coeff, expvec, varlist):
+    #makes a polynomial from the coeff, expvec, and varlist
+    
+
+def multMonomial(poly, varlist, coeff, expvec, degree):
     "Multiplies monomials"
     var_list1 = poly.getVarlist()
-    coefflst = poly.getCoefflist()[:]
-    explst = poly.getexpNonZero()
-    for i in range(len(coefflst)):
-        coefflst[i] *= coeff
+    poly1 = poly.getPoly()[:]
+    loclist1 = poly.getloclist()
+    ExpNonEmpty1 = poly.getexpNonZero()
+    for i in range(len(poly1)):
+        poly1[i] *= coeff
     newvarlist = list(set(var_list1) | set(varlist))
     newvarlist.sort()
     self_vars_positions = []
-    #creates a list of locations of (variables in self) in newvarlist
     for i in var_list1:
         self_vars_positions.append(bsearch(newvarlist, i))
     other_vars_positions = []
-    #creates a list of locations of (variables in other) in newvarlist
     for i in varlist:
         other_vars_positions.append(bsearch(newvarlist, i))
-    newdegree = poly.getDegree() + sum(expvec)
+    newdegree = poly.getDegree() + degree
     newvarnum = len(newvarlist)
+    newexplist = makeExpVec(newvarnum, newdegree)
     newexpnonempty = [] #new list of powers with non zero coeff
-    for i in explst:
+    for i in ExpNonEmpty1:
         newexpnonempty.append([0]*newvarnum)
     for counter,i in enumerate(newexpnonempty):
         for j in range(len(i)):
             if j in self_vars_positions:
-                i[j] += explst[counter][j]
+                i[j] += ExpNonEmpty1[counter][j]
             if j in other_vars_positions:
                 i[j] += expvec[j]
-    coefflst = modifiedgrevlexSort(newexpnonempty, coefflst)
-    return Polynomial("",coefflst,newexpnonempty,newvarlist,newdegree)
+    grevlexsort(newexpnonempty)
+    counter3 = 0
+    newpoly = []
+    for i in newexplist:
+        if i in newexpnonempty:
+            newpoly.append(poly1[loclist1[counter3]])
+            counter3 += 1
+        else:
+            newpoly.append(0)
+    return Polynomial("",newpoly,newvarlist,newdegree,newexplist)
+
+def inone(positionlst, L):
+    for i in positionlst:
+        if L[i] != 0:
+            return False
+    return True
+
+def makeExpVec(varnum, degree):
+    """
+    Makes the grevlex sorted list of exp vectors for a certain variable number
+    and certain degree
+    """
+    explist = [] #temp list of partitions
+    for i in range(varnum+1):
+        explist += list(revlex_partitions(degree, i))
+    temp2 = []
+    newexplist = []
+    for i in explist:
+        while len(i) < varnum:
+            i.append(0)
+        temp2 += list(itertools.permutations(i))
+    for i in temp2:
+        thingy = list(i)
+        if thingy in newexplist:
+            continue
+        newexplist.append(thingy)
+    grevlexsort(newexplist)
+    return newexplist
 
 def bsearch(lst, item):
 	low = 0
@@ -553,26 +587,6 @@ def grevsearch(lst, item):
     		high = middle -1
     return -1
 
-def modifiedgrevlexSort(explst, coefflst):
-    """
-    Perform insertion sort on the explst. Sorts coefflist accordingly.
-    Sorts by grevlex order
-    """
-    if len(explst) != len(coefflst):
-        raise ConflictingInputError
-    for i in range(1, len(explst)):
-        elt = explst[i]
-        elt2 = coefflst[i]
-        j = i-1
-        # if not at the start of the list and items are out of order
-        while (j >= 0) and grevlexhelper(elt,explst[j]):
-            explst[j+1] = explst[j]
-            coefflst[j+1] = coefflst[j]
-            j=j-1
-        explst[j+1] = elt
-        coefflst[j+1] = elt2
-    return coefflst
-
 def grevlexsort(lst):
     """
     Perform insertion sort on the list.
@@ -589,7 +603,7 @@ def grevlexsort(lst):
 
 def grevlexhelper(L1, L2):
     """
-    Returns True if L1 < L2 and False if L1 > L2
+    Returns Frue if L1 < L2 and False if L1 > L2
     Decides using grevlex
     """
     a = sum(L1)

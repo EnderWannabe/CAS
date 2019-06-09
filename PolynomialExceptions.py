@@ -14,3 +14,11 @@ class ConflictingInputError(PolynomialException):
 class TooManyVariables(PolynomialException):
     #Exception for when trying to solve an equation with >1 variables
     pass
+
+class NotDivisible(PolynomialException):
+    #Exception for when trying to divide two polynomials which are not divisible
+    pass
+
+class MonomialNotDivisible(NotDivisible):
+    #special case of monomials not being divisible
+    pass
