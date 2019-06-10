@@ -17,11 +17,10 @@ def main():
     #m = d * e
     #n = e * d
     #o = c * d
-    p = a.derive("a")
-    q = f.derive("x")
-    Polylist = [a,f,p,q]
+    #p = a.derive("a")
+    #q = f.derive("x")
+    r = Polynomial("x^2")
+    Polylist = [a,f]
     #Polylist = [a,b,c,d,e,f,g,h,i,j,k]
-    for i in Polylist:
-        print(i)
-        print(i.roots())
+    print(f.roots())
 main()
