@@ -294,6 +294,22 @@ class Polynomial(object):
         if varlist == []:
             return coefflist[0]
         return Polynomial("",coefflist,varlist,newexpveclst)
+    
+    def __eq__(self, other):
+        if(isinstance(other, int)): #for this to work polynomial needs to be the left of equality???
+            return (len(self.Polynomial) == 1) and (self.Polynomial[0] == other)
+        if(isinstance(other,self.__class__)):
+            if(self.varlist != other.varlist):
+                return False
+            sexpveclst = self.NewExpLst
+            oexpveclst = other.NewExpLst
+            spoly = self.Polynomial
+            opoly = other.Polynomial
+            if(len(sexpveclst) != oexpveclst):
+                return False
+            for i in range(len(spoly)):
+                if (spoly[i] != opoly[i]) or (sexpveclst[i] != oexpveclst[i]):
+                    return False
 
     def roots(self):
         """
@@ -371,6 +387,10 @@ def DivisionWithRemainder(dividend, divisors):
     a polynomial, divisor(s) should be a list of polynomials. returns a
     list of polynomials a_i corresponding to the divisors f_i
     for multivariable polynomials, non unique remainder"""
+    p = dividend
+    returnlst = [0]*len(divisors)
+    remainder = 0
+    #while p != 0: TODO: override equality for polynomials
 
 
 def Aberth(L, polynomial, derivative):
@@ -388,33 +408,19 @@ def Aberth(L, polynomial, derivative):
         final.append(i-offset)
     return final
 
-def MonomialDivisible(expvec1, expvec2):
-    """returns true if the dividend = (variables)**(expvec1)
-    is divisible by the divisor = (variables)**(expvec2). assumes
-    monomials have the same variables"""
-    returnbool = True
-    for i in range(len(expvec1)):
-        if(expvec1[i] - expvec2[i] < 0):
-            returnbool = False
-    return returnbool
-
 def DivideMonomial(coeff1, expvec1, coeff2, expvec2, varlist):
     """divides monomial a by monomial b, where
     a = coeff1*(variables)**(expvec1) and b = coeff2*(variables)**(expvec2).
-    assumes monomials have the same variables, which are given in varlist."""
+    assumes monomials have the same variables, which are given in varlist.
+    Returns false if not divisible"""
     qexpvec = []
     for i in range(len(expvec1)):
         temp = expvec1[i] - expvec2[i]
         if(temp < 0):
-            raise MonomialNotDivisible
+            return False #not divisible. The fact that I can return a bool here is insane
         qexpvec.append(temp)
     qcoeff = coeff1/coeff2
-    #make the monomial a polynomial now
-    
-
-def MakeMonomial(coeff, expvec, varlist):
-    #makes a polynomial from the coeff, expvec, and varlist
-    pass
+    return Polynomial("",[qcoeff],varlist,qexpvec)
 
 def multMonomial(poly, varlist, coeff, expvec):
     "Multiplies monomials, helper function for polynomial multiplication"
