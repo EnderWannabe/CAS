@@ -310,6 +310,7 @@ class Polynomial(object):
             for i in range(len(spoly)):
                 if (spoly[i] != opoly[i]) or (sexpveclst[i] != oexpveclst[i]):
                     return False
+            return True
 
     def roots(self):
         """
@@ -387,11 +388,29 @@ def DivisionWithRemainder(dividend, divisors):
     a polynomial, divisor(s) should be a list of polynomials. returns a
     list of polynomials a_i corresponding to the divisors f_i
     for multivariable polynomials, non unique remainder"""
-    p = dividend
+    p = Polynomial("",dividend.Polynomial, dividend.varlist, dividend.NewExpLst)
     returnlst = [0]*len(divisors)
     remainder = 0
-    #while p != 0: TODO: override equality for polynomials
-
+    while p != 0: 
+        counter = 1
+        divisionoccurred = False    
+        coeff1 = p.Polynomial(len(p.Polynomial)-1)
+        expvec1 = p.NewExpLst[len(p.NewExpLst)-1]
+        varlist = p.varlist
+        while counter <= len(divisors) and (not divisionoccurred):
+            coeff2 = divisors[counter].Polynomial(len(divisors[counter].Polynomial)-1)
+            expvec2 = divisors[counter].NewExpLst(len(divisors[counter].NewExpLst)-1)
+            tempdivide = DivideMonomial(coeff1,expvec1,coeff2,expvec2,varlist)
+            if not (isinstance(tempdivide,True.__class__)):
+                returnlst[counter] += tempdivide
+                p -= tempdivide * divisors[counter]
+            else:
+                counter += 1
+        if not divisionoccurred:
+            temppoly = Polynomial("", [coeff1],varlist, [expvec1])
+            remainder += temppoly
+            p -= temppoly
+    return returnlst,remainder
 
 def Aberth(L, polynomial, derivative):
     final = []
@@ -420,7 +439,7 @@ def DivideMonomial(coeff1, expvec1, coeff2, expvec2, varlist):
             return False #not divisible. The fact that I can return a bool here is insane
         qexpvec.append(temp)
     qcoeff = coeff1/coeff2
-    return Polynomial("",[qcoeff],varlist,qexpvec)
+    return Polynomial("",[qcoeff],varlist,[qexpvec])
 
 def multMonomial(poly, varlist, coeff, expvec):
     "Multiplies monomials, helper function for polynomial multiplication"
