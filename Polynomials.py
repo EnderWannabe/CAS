@@ -10,13 +10,22 @@ import cmath
 
 class Polynomial(object):
 
-    def __init__(self, string, polynomial = None, varlist = None, NewExpLst = None):
+    def __init__(self, string, polynomial = None, varlist = None, NewExpLst = None, paddingvars = None):
+        """
+        Polynomial constructor.
+        Takes either a string or a list of coefficients (polynomial), a list of variables, and
+        a list of exponents.
+        Padding variables are used to add dummy variables to a polynomial, 
+        which can be useful for various things such as division
+        """
         if polynomial == None:
             polynomial = []
         if varlist == None:
             varlist = []
         if NewExpLst == None:
             NewExpLst = []
+        if paddingvars == None:
+            paddingvars = []
         if string == "" and (polynomial == [] or varlist == [] or NewExpLst == []):
             raise InsufficientInputError
         if string != "" and (polynomial != [] or varlist != [] or NewExpLst != []):
@@ -29,6 +38,9 @@ class Polynomial(object):
             for i in string:
                 if i.isalpha() and i not in self.varlist:
                     self.varlist.append(i)
+        for i in paddingvars:
+            if not(i in varlist):
+                self.varlist.append(i)
         self.varlist.sort()
         self.varnum = len(self.varlist)
         self.degree = 0
@@ -82,6 +94,26 @@ class Polynomial(object):
             self.Polynomial = temppolynomial
             self.NewExpLst = tempexplist
         else:
+            if(len(self.NewExpLst) != 0) and (len(self.varlist) != 0):
+                if len(self.NewExpLst[0]) != len(self.varlist):
+                    padloc = []
+                    for i in paddingvars:
+                        padloc.append(self.varlist.index(i))
+                    print(padloc)
+                    new = []
+                    for i in self.NewExpLst:
+                        temp = []
+                        counter = 0
+                        for j in range(len(self.varlist)):
+                            if j in padloc:
+                                print("YES")
+                                temp.append(0)
+                            else:
+                                temp.append(i[counter])
+                                counter += 1
+                        print(temp)
+                        new.append(temp)
+                    self.NewExpLst = new
             doublegrevlexsort(self.NewExpLst,self.Polynomial)
             for i in self.NewExpLst:
                 tempsum = sum(i)
@@ -392,23 +424,36 @@ def DivisionWithRemainder(dividend, divisors):
     a polynomial, divisor(s) should be a list of polynomials. returns a
     list of polynomials a_i corresponding to the divisors f_i
     for multivariable polynomials, non unique remainder"""
-    p = Polynomial("",dividend.Polynomial, dividend.varlist, dividend.NewExpLst)
+    varlist1 = []
+    varlist2 = []
+    for i in divisors:
+        for j in i.varlist:
+            if not(j in varlist1):
+                varlist1.append(j)
+    for i in dividend.varlist:
+        varlist2.append(i)
+    if(varlist1 != varlist2):
+        for i in varlist2:
+            if not (i in varlist1):
+                varlist1.append(i)
+        for i in range(len(divisors)):
+            divisors[i] = Polynomial("",divisors[i].Polynomial,divisors[i].varlist,divisors[i].NewExpLst,varlist1)
+    p = Polynomial("",dividend.Polynomial, dividend.varlist, dividend.NewExpLst,varlist1)
+    print(p.NewExpLst)
+    print(divisors[0].NewExpLst)
     returnlst = [0]*len(divisors)
     remainder = 0
     while p != 0: 
         counter = 0
         divisionoccurred = False    
-        print(p)
         coeff1 = p.Polynomial[len(p.Polynomial)-1]
         expvec1 = p.NewExpLst[len(p.NewExpLst)-1]
         varlist = p.varlist
-        while counter <= len(divisors) and (not divisionoccurred):
+        while counter < len(divisors) and (not divisionoccurred):
             coeff2 = divisors[counter].Polynomial[len(divisors[counter].Polynomial)-1]
             expvec2 = divisors[counter].NewExpLst[len(divisors[counter].NewExpLst)-1]
-            print(coeff1,coeff2)
             tempdivide = DivideMonomial(coeff1,expvec1,coeff2,expvec2,varlist)
             if not (isinstance(tempdivide,True.__class__)):
-                print(tempdivide)
                 returnlst[counter] += tempdivide
                 p -= tempdivide * divisors[counter]
                 divisionoccurred = True
@@ -419,6 +464,22 @@ def DivisionWithRemainder(dividend, divisors):
             remainder += temppoly
             p -= temppoly
     return returnlst,remainder
+
+def DivideMonomial(coeff1, expvec1, coeff2, expvec2, varlist):
+    """divides monomial a by monomial b, where
+    a = coeff1*(variables)**(expvec1) and b = coeff2*(variables)**(expvec2).
+    assumes monomials have the same variables, which are given in varlist.
+    Returns false if not divisible"""
+    qexpvec = []
+    print(expvec1)
+    print(expvec2)
+    for i in range(len(expvec1)):
+        temp = expvec1[i] - expvec2[i]
+        if(temp < 0):
+            return False #not divisible. The fact that I can return a bool here is insane
+        qexpvec.append(temp)
+    qcoeff = coeff1/coeff2
+    return Polynomial("",[qcoeff],varlist,[qexpvec])
 
 def Aberth(L, polynomial, derivative):
     final = []
@@ -434,21 +495,6 @@ def Aberth(L, polynomial, derivative):
         offset = tempfrac/(1-tempfrac*tempsum)
         final.append(i-offset)
     return final
-
-def DivideMonomial(coeff1, expvec1, coeff2, expvec2, varlist):
-    """divides monomial a by monomial b, where
-    a = coeff1*(variables)**(expvec1) and b = coeff2*(variables)**(expvec2).
-    assumes monomials have the same variables, which are given in varlist.
-    Returns false if not divisible"""
-    qexpvec = []
-    for i in range(len(expvec1)):
-        temp = expvec1[i] - expvec2[i]
-        if(temp < 0):
-            return False #not divisible. The fact that I can return a bool here is insane
-        qexpvec.append(temp)
-    qcoeff = coeff1/coeff2
-    print(qcoeff)
-    return Polynomial("",[qcoeff],varlist,[qexpvec])
 
 def multMonomial(poly, varlist, coeff, expvec):
     "Multiplies monomials, helper function for polynomial multiplication"
