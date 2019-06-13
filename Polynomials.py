@@ -47,6 +47,8 @@ class Polynomial(object):
                                 value *= -1
                     elif string[counter-1] == "+":
                         value = 1
+                    elif counter == 0:
+                        value = 1
                     else:
                         value = -1
                     coeflist.append(value)
@@ -220,6 +222,8 @@ class Polynomial(object):
             for i in range(len(oexplst)):
                 polynomial.append(opoly[i])
                 newpolyexplst.append(oexplst[i])
+            if(len(polynomial) == 0):
+                return Polynomial("0")
             return Polynomial("", polynomial, newvarlist, newpolyexplst)
         else:
             return NotImplemented
@@ -392,18 +396,22 @@ def DivisionWithRemainder(dividend, divisors):
     returnlst = [0]*len(divisors)
     remainder = 0
     while p != 0: 
-        counter = 1
+        counter = 0
         divisionoccurred = False    
-        coeff1 = p.Polynomial(len(p.Polynomial)-1)
+        print(p)
+        coeff1 = p.Polynomial[len(p.Polynomial)-1]
         expvec1 = p.NewExpLst[len(p.NewExpLst)-1]
         varlist = p.varlist
         while counter <= len(divisors) and (not divisionoccurred):
-            coeff2 = divisors[counter].Polynomial(len(divisors[counter].Polynomial)-1)
-            expvec2 = divisors[counter].NewExpLst(len(divisors[counter].NewExpLst)-1)
+            coeff2 = divisors[counter].Polynomial[len(divisors[counter].Polynomial)-1]
+            expvec2 = divisors[counter].NewExpLst[len(divisors[counter].NewExpLst)-1]
+            print(coeff1,coeff2)
             tempdivide = DivideMonomial(coeff1,expvec1,coeff2,expvec2,varlist)
             if not (isinstance(tempdivide,True.__class__)):
+                print(tempdivide)
                 returnlst[counter] += tempdivide
                 p -= tempdivide * divisors[counter]
+                divisionoccurred = True
             else:
                 counter += 1
         if not divisionoccurred:
@@ -439,6 +447,7 @@ def DivideMonomial(coeff1, expvec1, coeff2, expvec2, varlist):
             return False #not divisible. The fact that I can return a bool here is insane
         qexpvec.append(temp)
     qcoeff = coeff1/coeff2
+    print(qcoeff)
     return Polynomial("",[qcoeff],varlist,[qexpvec])
 
 def multMonomial(poly, varlist, coeff, expvec):
