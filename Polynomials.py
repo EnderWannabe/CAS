@@ -27,6 +27,9 @@ class Polynomial(object):
         if paddingvars == None:
             paddingvars = []
         if string == "" and (polynomial == [] or varlist == [] or NewExpLst == []):
+            print(NewExpLst)
+            print(polynomial)
+            print(varlist)
             raise InsufficientInputError
         if string != "" and (polynomial != [] or varlist != [] or NewExpLst != []):
             raise ConflictingInputError #can't take both a string and other polynomial info
@@ -38,9 +41,11 @@ class Polynomial(object):
             for i in string:
                 if i.isalpha() and i not in self.varlist:
                     self.varlist.append(i)
+        disjointvars = []
         for i in paddingvars:
             if not(i in varlist):
                 self.varlist.append(i)
+                disjointvars.append(i)
         self.varlist.sort()
         self.varnum = len(self.varlist)
         self.degree = 0
@@ -97,21 +102,18 @@ class Polynomial(object):
             if(len(self.NewExpLst) != 0) and (len(self.varlist) != 0):
                 if len(self.NewExpLst[0]) != len(self.varlist):
                     padloc = []
-                    for i in paddingvars:
+                    for i in disjointvars:
                         padloc.append(self.varlist.index(i))
-                    print(padloc)
                     new = []
                     for i in self.NewExpLst:
                         temp = []
                         counter = 0
                         for j in range(len(self.varlist)):
                             if j in padloc:
-                                print("YES")
                                 temp.append(0)
                             else:
                                 temp.append(i[counter])
                                 counter += 1
-                        print(temp)
                         new.append(temp)
                     self.NewExpLst = new
             doublegrevlexsort(self.NewExpLst,self.Polynomial)
@@ -255,7 +257,7 @@ class Polynomial(object):
                 polynomial.append(opoly[i])
                 newpolyexplst.append(oexplst[i])
             if(len(polynomial) == 0):
-                return Polynomial("0")
+                return 0
             return Polynomial("", polynomial, newvarlist, newpolyexplst)
         else:
             return NotImplemented
@@ -439,8 +441,6 @@ def DivisionWithRemainder(dividend, divisors):
         for i in range(len(divisors)):
             divisors[i] = Polynomial("",divisors[i].Polynomial,divisors[i].varlist,divisors[i].NewExpLst,varlist1)
     p = Polynomial("",dividend.Polynomial, dividend.varlist, dividend.NewExpLst,varlist1)
-    print(p.NewExpLst)
-    print(divisors[0].NewExpLst)
     returnlst = [0]*len(divisors)
     remainder = 0
     while p != 0: 
